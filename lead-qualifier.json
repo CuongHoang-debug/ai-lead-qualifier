@@ -1,0 +1,425 @@
+{
+  "name": "Lead Qualifier",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Receive Lead').item.json.body.message }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a helpful assistan   You are a lead-qualification assistant for a small business.\n   Read the customer's message and return ONLY valid JSON with these fields:\n   - \"summary\": one sentence summary, in the customer's language\n   - \"category\": one of \"pricing\", \"support\", \"partnership\", \"other\"\n   - \"urgency\": one of \"low\", \"medium\", \"high\"\n   - \"language\": the language of the message\n   No extra text, no markdown.\n  Also include:\n  - \"score\": integer 1-10, how likely this lead is to become a paying customer\n    (10 = clear buying intent, budget or deadline mentioned; 1 = spam or unclear)\n  - \"next_action\": one short sentence recommending what the business should do next\n  If the message is spam or meaningless, use category \"other\", score 1-2.\nAlways write \"summary\" and \"next_action\" in English, regardless of the customer's language.\nKeep \"language\" as the language the customer wrote in (e.g. \"Vietnamese\")."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        288,
+        224
+      ],
+      "id": "d2bb5e57-5bf2-43b9-918a-35a608e03b66",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        416
+      ],
+      "id": "dadb0125-444c-44a3-8500-47b1f4ace4f2",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "  {\n    \"summary\": \"one sentence summary\",\n    \"category\": \"pricing\",\n    \"urgency\": \"high\",\n    \"language\": \"Vietnamese\",\n    \"score\": 8,\n    \"next_action\": \"Reply within 2 hours with a pricing quote\"\n  }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        480,
+        400
+      ],
+      "id": "7d766a25-edb5-4ee6-aa30-4baca23c4a01",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "YOUR_WEBHOOK_ID",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "df0fc61b-917f-4891-995f-1ae51203594f",
+      "name": "Receive Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        320
+      ],
+      "webhookId": "YOUR_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e9afde09-e858-4c5e-b2a9-2c7a8311dced",
+              "leftValue": "={{ $json.body.message ?? \"\" }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        112,
+        384
+      ],
+      "id": "f94f5563-1e68-485a-9ac2-f0d8752e78d2",
+      "name": "Has Message ?"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $('Receive Lead').item.json.body.name }}",
+            "email": "={{ $('Receive Lead').item.json.body.email }}",
+            "message": "={{ $('Receive Lead').item.json.body.message }}",
+            "created_at": "=\t{{ $now }}",
+            "summary": "=\t{{ $json.output.summary }}",
+            "category": "={{ $json.output.category }}",
+            "urgency": "={{ $json.output.urgency }}",
+            "language": "={{ $json.output.language }}",
+            "score": "=\t{{ $json.output.score }}",
+            "next_action": "=\t{{ $json.output.next_action }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "next_action",
+              "displayName": "next_action",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        368
+      ],
+      "id": "ef826b2c-30e8-47f9-a6fc-3899c195dcde",
+      "name": "Save to sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_CHAT_ID",
+        "text": "=🔔 New lead: {{ $('Receive Lead').item.json.body.name }}\nScore: {{ $('AI Agent').item.json.output.score }}/10 | {{ $('AI Agent').item.json.output.category }} | urgency: {{ $('AI Agent').item.json.output.urgency }}\n\n{{ $('AI Agent').item.json.output.summary }}\n\n👉 {{ $('AI Agent').item.json.output.next_action }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        832,
+        368
+      ],
+      "id": "cb345903-4793-4c4b-85af-2a1089c45422",
+      "name": "Notify Telegram",
+      "webhookId": "YOUR_WEBHOOK_ID_2",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"received\", \"message\": \"Thanks \" + $('Receive Lead').item.json.body.name + \", we'll get back to you soon.\" } }}",
+        "options": {}
+      },
+      "id": "67dbf628-2e41-4cd9-8855-97d5fd756900",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        992,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"error\": \"Missing message field\" }",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        336,
+        560
+      ],
+      "id": "e082830d-33bc-4cad-96d9-f61bd59ccb02",
+      "name": "Respond no OK"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Save to sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receive Lead": {
+      "main": [
+        [
+          {
+            "node": "Has Message ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Message ?": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond no OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to sheet": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond OK": {
+      "main": [
+        []
+      ]
+    },
+    "Notify Telegram": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "YOUR_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "id": "YOUR_WORKFLOW_ID",
+  "tags": []
+}
